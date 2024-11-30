@@ -39,6 +39,202 @@ When working with BCD on a Z80 SBC, you typically pass the addresses of BCD valu
 - When working with BCD on a Z80 SBC, you pass addresses and lengths in registers.
 
 
+## Z80 assembly example
+that demonstrates BCD operations including initialization, addition, subtraction, and display routines.
+
+```assembly
+; BCD Operations Example for Z80
+; Demonstrates packed and unpacked BCD handling
+
+        org     8000h           ; Program start address
+
+; Constants
+DIGITS  equ     4               ; Number of digits to handle
+ASCII_0 equ     30h             ; ASCII code for '0'
+CR      equ     0Dh             ; Carriage return
+LF      equ     0Ah             ; Line feed
+
+; Data section
+        org     8100h           ; Data area
+bcd1:   db      12h,34h        ; First BCD number (1234)
+bcd2:   db      56h,78h        ; Second BCD number (5678)
+result: ds      3              ; Result storage (3 bytes for sum)
+buffer: ds      10             ; Display buffer
+
+start:
+        ; Initialize
+        ld      sp,0FFFFh      ; Set stack pointer
+        
+; Add two BCD numbers
+add_bcd:
+        ld      hl,bcd1        ; First number
+        ld      de,bcd2        ; Second number
+        ld      bc,result      ; Result location
+        xor     a              ; Clear carry
+        ld      b,2            ; 2 bytes to process
+        
+add_loop:
+        ld      a,(de)         ; Get digit from second number
+        adc     a,(hl)         ; Add digit from first number with carry
+        daa                    ; Decimal adjust
+        ld      (bc),a         ; Store result
+        inc     hl             ; Next digit position
+        inc     de
+        inc     bc
+        djnz    add_loop       ; Continue for all digits
+        
+        jr      nc,no_carry    ; Check final carry
+        ld      a,1            ; Store carry digit if present
+        ld      (bc),a
+        
+no_carry:
+        ; Convert result to ASCII and display
+        call    display_bcd
+        ret
+
+; Display BCD number routine
+display_bcd:
+        ld      hl,result      ; Point to result
+        ld      de,buffer      ; Output buffer
+        ld      b,3            ; Number of bytes to process
+        
+disp_loop:
+        ld      a,(hl)         ; Get BCD byte
+        push    af             ; Save it
+        rrca                   ; Get high nibble
+        rrca
+        rrca
+        rrca
+        and     0Fh            ; Mask lower bits
+        add     a,ASCII_0      ; Convert to ASCII
+        ld      (de),a         ; Store in buffer
+        inc     de
+        
+        pop     af             ; Restore BCD byte
+        and     0Fh            ; Get low nibble
+        add     a,ASCII_0      ; Convert to ASCII
+        ld      (de),a         ; Store in buffer
+        inc     de
+        
+        inc     hl             ; Next byte
+        djnz    disp_loop
+        
+        ; Add CR/LF
+        ld      a,CR
+        ld      (de),a
+        inc     de
+        ld      a,LF
+        ld      (de),a
+        
+        ; Display the buffer
+        ld      hl,buffer
+        call    print_string
+        ret
+
+; Subtract two BCD numbers
+sub_bcd:
+        ld      hl,bcd1        ; First number
+        ld      de,bcd2        ; Second number
+        ld      bc,result      ; Result location
+        xor     a              ; Clear carry
+        ld      b,2            ; 2 bytes to process
+        
+sub_loop:
+        ld      a,(hl)         ; Get digit from first number
+        sbc     a,(de)         ; Subtract digit from second number
+        daa                    ; Decimal adjust
+        ld      (bc),a         ; Store result
+        inc     hl
+        inc     de
+        inc     bc
+        djnz    sub_loop
+        ret
+
+; Utility routine to print string
+print_string:
+        ld      a,(hl)         ; Get character
+        cp      0              ; Check for end
+        ret     z              ; Return if done
+        call    print_char     ; Print it
+        inc     hl             ; Next character
+        jr      print_string   ; Continue
+
+; Print single character
+print_char:
+        push    af
+        push    bc
+        push    de
+        push    hl
+        
+        ; Your system's character output routine here
+        ; Example for a serial port at port 80h:
+        out     (80h),a
+        
+        pop     hl
+        pop     de
+        pop     bc
+        pop     af
+        ret
+
+; Pack two unpacked BCD bytes into one
+pack_bcd:
+        ld      a,d            ; High digit in D
+        rlca                   ; Shift to high nibble
+        rlca
+        rlca
+        rlca
+        and     0F0h           ; Mask
+        ld      b,a            ; Save
+        ld      a,e            ; Low digit in E
+        and     0Fh            ; Mask
+        or      b              ; Combine
+        ret
+
+; Unpack one packed BCD byte into two
+unpack_bcd:
+        ld      d,a            ; Save packed byte
+        rrca                   ; Get high nibble
+        rrca
+        rrca
+        rrca
+        and     0Fh            ; Mask
+        ld      h,a            ; Store high digit
+        ld      a,d            ; Get original byte
+        and     0Fh            ; Mask for low digit
+        ld      l,a            ; Store low digit
+        ret
+
+        end     start
+```
+
+Key features of this implementation:
+
+1. BCD Addition:
+   - Uses ADC and DAA for proper decimal addition
+   - Handles carry between digits
+   - Stores result with possible carry digit
+
+2. BCD Subtraction:
+   - Uses SBC and DAA for decimal subtraction
+   - Maintains BCD format throughout
+
+3. Display Routines:
+   - Converts BCD to ASCII
+   - Handles both nibbles separately
+   - Adds proper line endings
+
+4. Utility Functions:
+   - Pack/unpack BCD digits
+   - String output routine
+   - Character output handling
+
+Usage:
+```assembly
+        ld      hl,bcd1        ; Load first number
+        ld      de,bcd2        ; Load second number
+        call    add_bcd        ; Add numbers
+        call    display_bcd    ; Show result
+```
 
 
 
