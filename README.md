@@ -41,7 +41,7 @@ When working with BCD on a Z80 SBC, you typically pass the addresses of BCD valu
 
 
 
-## BCD addition 
+
 
 BINARY CODED DECIMAL (BCD) IN MINT
 =================================
@@ -71,14 +71,16 @@ BCD Functions Example
 -------------------
 Here are basic MINT functions for BCD operations:
 
-1. Initialize BCD Arrays:
+## BCD addition 
+```
+// 1. Initialize BCD Arrays:
 :A              // Initialize arrays 
   \[0 0 0 3] x! // First BCD number (0003)
   \[0 0 0 8] y! // Second BCD number (0008)
   \[0 0 0 0] z! // Result array
 ;
 
-2. BCD Addition:
+// 2. BCD Addition:
 :B              // Add two BCD numbers
   0 c!          // Clear carry flag
   4(            // Process 4 digits
@@ -96,13 +98,15 @@ Here are basic MINT functions for BCD operations:
   )
 ;
 
-3. Display BCD Number:
+// 3. Display BCD Number:
 :C              // Print BCD number
   4(            // For each digit
     z /i \? .   // Print digit
   )
   /N            // New line
 ;
+
+```
 
 Usage Guidelines
 ---------------
