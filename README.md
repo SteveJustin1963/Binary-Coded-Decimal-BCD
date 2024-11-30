@@ -203,6 +203,8 @@ Usage:
 BINARY CODED DECIMAL (BCD) IN MINT
 =================================
 
+https://github.com/SteveJustin1963/tec-MINT
+
 Overview
 --------
 - BCD represents decimal digits 0-9 using 4 bits per digit
