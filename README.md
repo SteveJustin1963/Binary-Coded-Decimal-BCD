@@ -46,165 +46,126 @@ that demonstrates BCD operations including initialization, addition, subtraction
 ; BCD Operations Example for Z80
 ; Demonstrates packed and unpacked BCD handling
 
-        org     8000h           ; Program start address
+        ORG     8000h           ; Program start address
 
 ; Constants
-DIGITS  equ     4               ; Number of digits to handle
-ASCII_0 equ     30h             ; ASCII code for '0'
-CR      equ     0Dh             ; Carriage return
-LF      equ     0Ah             ; Line feed
+MAXLEN  EQU     4              ; Maximum digits
+NUM1    EQU     8100h          ; First number location
+NUM2    EQU     8110h          ; Second number location
+RESULT  EQU     8120h          ; Result location
+BUFFER  EQU     8130h          ; Display buffer
 
-; Data section
-        org     8100h           ; Data area
-bcd1:   db      12h,34h        ; First BCD number (1234)
-bcd2:   db      56h,78h        ; Second BCD number (5678)
-result: ds      3              ; Result storage (3 bytes for sum)
-buffer: ds      10             ; Display buffer
+START:
+        ; Initialize stack
+        LD      SP,0FFFFh      
 
-start:
-        ; Initialize
-        ld      sp,0FFFFh      ; Set stack pointer
-        
+; Main program entry
+MAIN:
+        CALL    ADD_BCD
+        CALL    DISPLAY
+        RET
+
 ; Add two BCD numbers
-add_bcd:
-        ld      hl,bcd1        ; First number
-        ld      de,bcd2        ; Second number
-        ld      bc,result      ; Result location
-        xor     a              ; Clear carry
-        ld      b,2            ; 2 bytes to process
+ADD_BCD:
+        LD      HL,NUM1        ; First number
+        LD      DE,NUM2        ; Second number
+        LD      IX,RESULT      ; Result location
+        XOR     A              ; Clear carry
+        LD      B,2            ; 2 bytes to process
         
-add_loop:
-        ld      a,(de)         ; Get digit from second number
-        adc     a,(hl)         ; Add digit from first number with carry
-        daa                    ; Decimal adjust
-        ld      (bc),a         ; Store result
-        inc     hl             ; Next digit position
-        inc     de
-        inc     bc
-        djnz    add_loop       ; Continue for all digits
-        
-        jr      nc,no_carry    ; Check final carry
-        ld      a,1            ; Store carry digit if present
-        ld      (bc),a
-        
-no_carry:
-        ; Convert result to ASCII and display
-        call    display_bcd
-        ret
+ADD_LOOP:
+        LD      A,(DE)         ; Get digit from second number
+        ADD     A,(HL)         ; Add digit from first number
+        DAA                    ; Decimal adjust
+        LD      (IX+0),A       ; Store result
+        INC     HL             ; Next digit
+        INC     DE
+        INC     IX
+        DJNZ    ADD_LOOP       ; Continue for all digits
+        RET     NC             ; Return if no carry
+        LD      A,1            ; Store carry digit
+        LD      (IX+0),A
+        RET
 
-; Display BCD number routine
-display_bcd:
-        ld      hl,result      ; Point to result
-        ld      de,buffer      ; Output buffer
-        ld      b,3            ; Number of bytes to process
+; Display routine
+DISPLAY:
+        LD      HL,RESULT      ; Point to result
+        LD      DE,BUFFER      ; Output buffer
+        LD      B,3            ; Process 3 bytes
         
-disp_loop:
-        ld      a,(hl)         ; Get BCD byte
-        push    af             ; Save it
-        rrca                   ; Get high nibble
-        rrca
-        rrca
-        rrca
-        and     0Fh            ; Mask lower bits
-        add     a,ASCII_0      ; Convert to ASCII
-        ld      (de),a         ; Store in buffer
-        inc     de
+DISP_LOOP:
+        LD      A,(HL)         ; Get BCD byte
+        PUSH    AF             ; Save it
+        RRCA                   ; Get high nibble
+        RRCA
+        RRCA
+        RRCA
+        AND     0Fh            ; Mask lower bits
+        ADD     A,30h          ; Convert to ASCII
+        LD      (DE),A         ; Store to buffer
+        INC     DE
         
-        pop     af             ; Restore BCD byte
-        and     0Fh            ; Get low nibble
-        add     a,ASCII_0      ; Convert to ASCII
-        ld      (de),a         ; Store in buffer
-        inc     de
-        
-        inc     hl             ; Next byte
-        djnz    disp_loop
+        POP     AF             ; Restore byte
+        AND     0Fh            ; Get low nibble
+        ADD     A,30h          ; Convert to ASCII
+        LD      (DE),A         ; Store to buffer
+        INC     DE
+        INC     HL             ; Next byte
+        DJNZ    DISP_LOOP
         
         ; Add CR/LF
-        ld      a,CR
-        ld      (de),a
-        inc     de
-        ld      a,LF
-        ld      (de),a
+        LD      A,0Dh          ; CR
+        LD      (DE),A
+        INC     DE
+        LD      A,0Ah          ; LF
+        LD      (DE),A
+        INC     DE
+        LD      A,'$'          ; String terminator
+        LD      (DE),A
+        RET
+
+; Pack two BCD digits into one byte
+PACK:
+        LD      A,D            ; High digit
+        RLCA                   ; Shift left 4 times
+        RLCA
+        RLCA
+        RLCA
+        AND     0F0h           ; Mask high nibble
+        LD      B,A            ; Save it
+        LD      A,E            ; Low digit
+        AND     0Fh            ; Mask low nibble
+        OR      B              ; Combine
+        RET
+
+; Unpack one BCD byte into two
+UNPACK:
+        LD      D,A            ; Save packed byte
+        RRCA                   ; Shift right 4 times
+        RRCA
+        RRCA
+        RRCA
+        AND     0Fh            ; Mask for high digit
+        LD      H,A            ; Store high digit
+        LD      A,D            ; Get original byte
+        AND     0Fh            ; Mask for low digit
+        LD      L,A            ; Store low digit
+        RET
+
+; Data section
+        ORG     NUM1
+        DB      12h,34h        ; First BCD number (1234)
         
-        ; Display the buffer
-        ld      hl,buffer
-        call    print_string
-        ret
-
-; Subtract two BCD numbers
-sub_bcd:
-        ld      hl,bcd1        ; First number
-        ld      de,bcd2        ; Second number
-        ld      bc,result      ; Result location
-        xor     a              ; Clear carry
-        ld      b,2            ; 2 bytes to process
+        ORG     NUM2
+        DB      56h,78h        ; Second BCD number (5678)
         
-sub_loop:
-        ld      a,(hl)         ; Get digit from first number
-        sbc     a,(de)         ; Subtract digit from second number
-        daa                    ; Decimal adjust
-        ld      (bc),a         ; Store result
-        inc     hl
-        inc     de
-        inc     bc
-        djnz    sub_loop
-        ret
-
-; Utility routine to print string
-print_string:
-        ld      a,(hl)         ; Get character
-        cp      0              ; Check for end
-        ret     z              ; Return if done
-        call    print_char     ; Print it
-        inc     hl             ; Next character
-        jr      print_string   ; Continue
-
-; Print single character
-print_char:
-        push    af
-        push    bc
-        push    de
-        push    hl
+        ORG     RESULT
+        DS      3              ; Result storage
         
-        ; Your system's character output routine here
-        ; Example for a serial port at port 80h:
-        out     (80h),a
-        
-        pop     hl
-        pop     de
-        pop     bc
-        pop     af
-        ret
+        ORG     BUFFER
+        DS      10             ; Display buffer
 
-; Pack two unpacked BCD bytes into one
-pack_bcd:
-        ld      a,d            ; High digit in D
-        rlca                   ; Shift to high nibble
-        rlca
-        rlca
-        rlca
-        and     0F0h           ; Mask
-        ld      b,a            ; Save
-        ld      a,e            ; Low digit in E
-        and     0Fh            ; Mask
-        or      b              ; Combine
-        ret
-
-; Unpack one packed BCD byte into two
-unpack_bcd:
-        ld      d,a            ; Save packed byte
-        rrca                   ; Get high nibble
-        rrca
-        rrca
-        rrca
-        and     0Fh            ; Mask
-        ld      h,a            ; Store high digit
-        ld      a,d            ; Get original byte
-        and     0Fh            ; Mask for low digit
-        ld      l,a            ; Store low digit
-        ret
-
-        end     start
+        END
 ```
 
 Key features of this implementation:
